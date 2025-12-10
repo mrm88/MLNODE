@@ -5,7 +5,7 @@ set -e
 
 WORKSPACE=${WORKSPACE:-/workspace}
 APP_DIR=$WORKSPACE/gonka-mlnode
-DOWNLOAD_URL="https://github.com/mrm88/gonka-mlnode-scripts/releases/download/v1.0.0/gonka-mlnode-app.tar.gz"
+DOWNLOAD_URL="https://github.com/mrm88/gonka-mlnode-scripts/releases/download/V1/gonka-mlnode-app.tar.gz"
 
 echo "========================================="
 echo "Gonka MLNode Setup"
