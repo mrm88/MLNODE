@@ -24,34 +24,25 @@ DB_PATH="/data/gonka-scripts/compressa-perf-db.sqlite"
 if [ -f "$DB_PATH" ]; then
     echo "Detecting best benchmarked configuration..."
     
-    BEST_RESULT=$(sqlite3 "$DB_PATH" << EOF
-SELECT experiment_name, 
-       json_extract(value, '$.THROUGHPUT_OUTPUT_TOKENS') as throughput
-FROM experiment_results 
-WHERE metric = 'summary'
-  AND experiment_name LIKE 'gonka-tp%'
-ORDER BY throughput DESC 
-LIMIT 1;
-EOF
-)
+    BEST_RESULT=$(sqlite3 "$DB_PATH" "SELECT e.name, CAST(m.value AS REAL) as throughput FROM Experiments e JOIN Metrics m ON e.id = m.experiment_id WHERE m.name = 'THROUGHPUT_OUTPUT_TOKENS' AND e.name LIKE 'gonka-tp%' ORDER BY throughput DESC LIMIT 1;")
     
     if [ -n "$BEST_RESULT" ]; then
         BEST_CONFIG=$(echo "$BEST_RESULT" | cut -d'|' -f1)
         BEST_THROUGHPUT=$(echo "$BEST_RESULT" | cut -d'|' -f2)
         TP_VALUE=$(echo "$BEST_CONFIG" | sed 's/.*tp\([0-9]*\).*/\1/')
         
-        echo "✓ Best config: TP=$TP_VALUE ($BEST_THROUGHPUT tok/s)"
+        echo "Best config: TP=$TP_VALUE ($BEST_THROUGHPUT tok/s)"
         TP_SIZE=$TP_VALUE
     else
-        echo "⚠ No benchmark results found, using default TP=4"
+        echo "No benchmark results found, using default TP=4"
         TP_SIZE=4
     fi
 else
-    echo "⚠ Benchmark database not found, using default TP=4"
+    echo "Benchmark database not found, using default TP=4"
     TP_SIZE=4
 fi
 
-PP_SIZE=1  # Always PP=1 (PP>1 doesn't work with current vLLM version)
+PP_SIZE=1
 
 echo "========================================="
 echo "Registering MLNode with Network Node"
@@ -63,62 +54,43 @@ echo "Config: TP=$TP_SIZE, PP=$PP_SIZE"
 # Check if MLNode is running
 if ! curl -s http://localhost:5000/health > /dev/null 2>&1; then
     echo "ERROR: MLNode is not running on port 5000"
-    echo "Start it first: bash start_production_working.sh"
     exit 1
 fi
 
-echo "✓ MLNode is running"
+echo "MLNode is running"
 
 # Register with Network Node Admin API
 echo "Registering via Network Node Admin API..."
 
 RESPONSE=$(curl -s -X POST ${NETWORK_NODE_ADMIN_API}/admin/v1/nodes \
   -H "Content-Type: application/json" \
-  -d '{
-    "host": "'${MLNODE_IP}'",
-    "inference_segment": "",
-    "inference_port": '${MLNODE_INFERENCE_PORT}',
-    "poc_segment": "",
-    "poc_port": '${MLNODE_MANAGEMENT_PORT}',
-    "models": {
-      "'${MODEL_NAME}'": {
-        "args": [
-          "--tensor-parallel-size",
-          "'$TP_SIZE'",
-          "--pipeline-parallel-size",
-          "'$PP_SIZE'"
+  -d "{
+    \"host\": \"${MLNODE_IP}\",
+    \"inference_segment\": \"\",
+    \"inference_port\": ${MLNODE_INFERENCE_PORT},
+    \"poc_segment\": \"\",
+    \"poc_port\": ${MLNODE_MANAGEMENT_PORT},
+    \"models\": {
+      \"${MODEL_NAME}\": {
+        \"args\": [
+          \"--tensor-parallel-size\",
+          \"${TP_SIZE}\",
+          \"--pipeline-parallel-size\",
+          \"${PP_SIZE}\"
         ]
       }
     },
-    "id": "'${MLNODE_ID}'",
-    "max_concurrent": 1000,
-    "hardware": null
-  }')
+    \"id\": \"${MLNODE_ID}\",
+    \"max_concurrent\": 1000,
+    \"hardware\": null
+  }")
 
 echo "Response: $RESPONSE"
 
-# Verify registration
-echo ""
-echo "Verifying registration..."
-sleep 2
-
-echo "All registered nodes:"
-curl -s ${NETWORK_NODE_ADMIN_API}/admin/v1/nodes | jq '.'
-
-echo ""
-echo "Your node:"
-curl -s ${NETWORK_NODE_ADMIN_API}/admin/v1/nodes | jq '.[] | select(.node.id=="'${MLNODE_ID}'")'
-
 echo ""
 echo "========================================="
-echo "✓ Registration Complete!"
+echo "Registration Complete!"
 echo "========================================="
-echo "Your MLNode ID: ${MLNODE_ID}"
-echo "Registered Config: TP=$TP_SIZE, PP=$PP_SIZE"
-echo "Check status: curl ${NETWORK_NODE_ADMIN_API}/admin/v1/nodes | jq"
-echo ""
-echo "Note: It may take up to 3 hours for your node to appear in"
-echo "the active participants list during the next PoC cycle."
-echo ""
-echo "Monitor participants: curl http://${NETWORK_NODE_IP}:8000/v1/epochs/current/participants | jq"
+echo "MLNode ID: ${MLNODE_ID}"
+echo "Config: TP=$TP_SIZE, PP=$PP_SIZE"
 echo "========================================="
