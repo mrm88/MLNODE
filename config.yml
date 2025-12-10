@@ -1,0 +1,14 @@
+scenarios:
+  - name: "short_prompt_short_output"
+    prompts:
+      - prompt: "Write a brief summary of machine learning."
+        max_tokens: 300
+    num_concurrent: 20
+    num_requests: 100
+    
+  - name: "long_prompt_long_output"  
+    prompts:
+      - prompt: "Write a comprehensive 5000-word essay on the history of artificial intelligence, covering major milestones, key researchers, breakthroughs in neural networks, the AI winters, recent advances in deep learning, and future implications for society."
+        max_tokens: 1000
+    num_concurrent: 20
+    num_requests: 100
