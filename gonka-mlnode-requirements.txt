@@ -1,0 +1,12 @@
+fastapi
+uvicorn
+starlette
+httpx[http2]
+aiohttp
+pydantic
+toml
+fire
+sentencepiece
+tiktoken
+fairscale
+h2
