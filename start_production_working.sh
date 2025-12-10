@@ -20,7 +20,8 @@ echo "[$(date)] Configuration: TP=$OPTIMAL_TP"
 echo "[$(date)] Inference Port: $INFERENCE_PORT"
 
 # Kill any existing
-pkill -9 vllm python3 || true
+pkill -9 -f "vllm" || true
+pkill -9 -f "python3.*vllm" || true
 sleep 10
 
 # Start vLLM
