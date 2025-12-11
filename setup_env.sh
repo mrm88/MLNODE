@@ -1,45 +1,36 @@
 #!/bin/bash
-# setup_env.sh - Environment configuration for Gonka MLNode
+# setup_env.sh - Environment configuration for Vast.ai
 
-# ===== MLNODE CONFIGURATION =====
-export HF_HOME=/data/.cache/huggingface
-export CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7
-export MODEL=Qwen/Qwen3-32B-FP8
+# Get public IP from Vast.ai metadata
+# Use the LOCAL IP from "Open Ports" section (175.x.x.x)
+# NOT the public IP that curl ifconfig.me returns (198.x.x.x)
+export MLNODE_PUBLIC_IP=$(hostname -I | awk '{print $1}')
 
-# MLNode ports (local)
-export INFERENCE_PORT=5000
-export MANAGEMENT_PORT=8080
+# Internal ports (inside container)
+export MLNODE_INFERENCE_PORT=5000
+export MLNODE_MANAGEMENT_PORT=8080
 
-# Get MLNode public IP
-export MLNODE_PUBLIC_IP=$(curl -s ifconfig.me)
-
-# ===== NETWORK NODE CONFIGURATION (Your remote server) =====
-export NETWORK_NODE_IP=104.238.135.166
-export NETWORK_NODE_API_PORT=8000
-export NETWORK_NODE_ADMIN_PORT=9200
-export NETWORK_NODE_POC_CALLBACK=http://${NETWORK_NODE_IP}:9100
-
-# ===== GONKA NETWORK =====
-export SEED_API_URL=http://node2.gonka.ai:8000
-export SEED_NODE_RPC_URL=http://node2.gonka.ai:26657
+# Network Node configuration
+export NETWORK_NODE_IP="104.238.135.166"
+export NETWORK_NODE_ADMIN_API="http://${NETWORK_NODE_IP}:9200"
+export POC_CALLBACK_URL="http://${NETWORK_NODE_IP}:9100"
 
 echo "========================================="
 echo "MLNode Configuration"
 echo "========================================="
 echo "MLNode Public IP: $MLNODE_PUBLIC_IP"
-echo "Inference Port: $INFERENCE_PORT"
-echo "Management Port: $MANAGEMENT_PORT"
+echo "Inference Port (internal): $MLNODE_INFERENCE_PORT"
+echo "Management Port (internal): $MLNODE_MANAGEMENT_PORT"
 echo ""
 echo "Network Node: $NETWORK_NODE_IP"
-echo "Network Node Admin API: http://$NETWORK_NODE_IP:$NETWORK_NODE_ADMIN_PORT"
-echo "PoC Callback URL: $NETWORK_NODE_POC_CALLBACK"
+echo "Network Node Admin API: $NETWORK_NODE_ADMIN_API"
+echo "PoC Callback URL: $POC_CALLBACK_URL"
 echo "========================================="
-
-# Aliases for register_with_network.sh compatibility
-export MLNODE_IP="$MLNODE_PUBLIC_IP"
-export MLNODE_INFERENCE_PORT="$INFERENCE_PORT"
-export MLNODE_MANAGEMENT_PORT="$MANAGEMENT_PORT"
-export MODEL_NAME="$MODEL"
-export NETWORK_NODE_ADMIN_API="http://$NETWORK_NODE_IP:$NETWORK_NODE_ADMIN_PORT"
-export MLNODE_ID="a40-cluster-tp4"
-export POC_CALLBACK_URL="$NETWORK_NODE_POC_CALLBACK"
+echo ""
+echo "⚠️  IMPORTANT: Check Vast.ai 'Open Ports' for external ports!"
+echo "Example: 175.155.64.175:19644 -> 5000/tcp"
+echo "         175.155.64.175:19391 -> 8080/tcp"
+echo ""
+echo "Set these BEFORE registering:"
+echo "  export EXTERNAL_INFERENCE_PORT=19644   # Your actual port"
+echo "  export EXTERNAL_MANAGEMENT_PORT=19391  # Your actual port"

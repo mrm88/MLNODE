@@ -1,16 +1,21 @@
 #!/bin/bash
-# setup_mlnode.sh - Complete 4×A40 MLNode Setup with Nginx Proxy
+# setup_mlnode.sh - Complete Vast.ai MLNode Setup
 
 set -e
 
 echo "========================================="
-echo "Gonka MLNode Complete Setup - 4×A40"
+echo "Gonka MLNode Setup - Vast.ai"
 echo "========================================="
+
+# Fix DNS (Vast.ai issue)
+echo "Fixing DNS configuration..."
+echo "nameserver 8.8.8.8" > /etc/resolv.conf
+echo "nameserver 8.8.4.4" >> /etc/resolv.conf
 
 # Update system and install dependencies
 echo "Installing system dependencies..."
 apt-get update
-apt-get install -y git screen sqlite3 jq curl pkg-config libsecp256k1-dev nginx
+apt-get install -y git screen sqlite3 jq curl pkg-config libsecp256k1-dev nginx wget
 
 # Upgrade pip
 python3.12 -m pip install --upgrade pip
@@ -18,7 +23,7 @@ python3.12 -m pip install --upgrade pip
 # Install Python packages
 echo "Installing Python packages..."
 pip install git+https://github.com/product-science/compressa-perf.git --break-system-packages
-pip install toml fire sentencepiece tiktoken fairscale h2 httpx[http2] --break-system-packages
+pip install toml fire sentencepiece tiktoken fairscale h2 httpx[http2] huggingface_hub --break-system-packages
 
 # Clone/update scripts
 echo "Setting up scripts repository..."
@@ -43,8 +48,20 @@ if [ ! -d "/data/app" ]; then
     rm gonka-mlnode-app.tar.gz
     
     echo "Verifying extraction..."
-    ls -la app/
     ls -la app/packages/
+fi
+
+# Pre-download model (critical for Vast.ai)
+if [ ! -d "/data/.cache/huggingface/hub/models--Qwen--Qwen3-32B-FP8" ]; then
+    echo "========================================="
+    echo "Downloading Qwen3-32B-FP8 model (~32GB)"
+    echo "This will take 5-10 minutes..."
+    echo "========================================="
+    export HF_HOME=/data/.cache/huggingface
+    huggingface-cli download Qwen/Qwen3-32B-FP8 --local-dir-use-symlinks False
+    echo "Model download complete!"
+else
+    echo "Model already cached, skipping download."
 fi
 
 # Create logs directory
@@ -63,6 +80,7 @@ server {
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_read_timeout 300s;
     }
 
     # Direct access without version
@@ -71,6 +89,7 @@ server {
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_read_timeout 300s;
     }
 }
 EOF
@@ -81,15 +100,16 @@ nginx -t
 
 # Start nginx
 echo "Starting Nginx..."
-pkill nginx || true
+pkill nginx 2>/dev/null || true
+sleep 2
 nginx
 
 echo "========================================="
-echo "Setup complete! Ready to start services"
+echo "Setup complete! ✅"
 echo "========================================="
 echo ""
 echo "Next steps:"
 echo "1. Start Gonka API: bash /data/gonka-scripts/start_gonka_api.sh"
-echo "2. Start vLLM via Gonka: bash /data/gonka-scripts/start_vllm_via_gonka.sh"
-echo "3. Register node: bash /data/gonka-scripts/register_node.sh"
-echo "4. Check status: bash /data/gonka-scripts/check_status.sh"
+echo "2. Start vLLM: bash /data/gonka-scripts/start_vllm_via_gonka.sh"
+echo "3. Find your ports in Vast.ai 'Open Ports' section"
+echo "4. Register: bash /data/gonka-scripts/register_node.sh"
